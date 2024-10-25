@@ -41,7 +41,37 @@ interface BurnAction {
   }
 }
 
-const AnimatedNumber: FC<AnimatedNumberProps> = ({ value, prefix = '', suffix = '', decimalPlaces = 2 }) => {
+// Define the interface for CollectionStats
+interface CollectionStats {
+  id: string;
+  slug: string;
+  slugMe: string;
+  slugDisplay: string;
+  statsV2: {
+    currency: string;
+    buyNowPrice: number;
+    buyNowPriceNetFees: number;
+    sellNowPrice: number;
+    sellNowPriceNetFees: number;
+    numListed: number;
+    numMints: number;
+    floor1h: number;
+    floor24h: number;
+    floor7d: number;
+    sales1h: number;
+    sales24h: number;
+    sales7d: number;
+    salesAll: number;
+    volume1h: number;
+    volume24h: number;
+    volume7d: number;
+    volumeAll: number;
+  };
+  firstListDate: string;
+  name: string;
+}
+
+const AnimatedNumber: FC<AnimatedNumberProps> = ({ value, prefix = '', suffix = '', decimalPlaces = 3 }) => {
   const [displayValue, setDisplayValue] = useState<number>(0)
 
   useEffect(() => {
@@ -151,36 +181,6 @@ const StatCard: FC<StatCardProps> = ({ title, value, subtitle, icon, trend = nul
   </Card>
 )
 
-// Define the interface for CollectionStats
-interface CollectionStats {
-  id: string;
-  slug: string;
-  slugMe: string;
-  slugDisplay: string;
-  statsV2: {
-    currency: string;
-    buyNowPrice: number;
-    buyNowPriceNetFees: number;
-    sellNowPrice: number;
-    sellNowPriceNetFees: number;
-    numListed: number;
-    numMints: number;
-    floor1h: number;
-    floor24h: number;
-    floor7d: number;
-    sales1h: number;
-    sales24h: number;
-    sales7d: number;
-    salesAll: number;
-    volume1h: number;
-    volume24h: number;
-    volume7d: number;
-    volumeAll: number;
-  };
-  firstListDate: string;
-  name: string;
-}
-
 // DashboardComponent
 export const DashboardComponent: FC = () => {
   const [loading, setLoading] = useState<boolean>(true)
@@ -191,6 +191,10 @@ export const DashboardComponent: FC = () => {
   // New state variables for collection stats
   const [collectionStats, setCollectionStats] = useState<CollectionStats | null>(null)
   const [currentMintNumber, setCurrentMintNumber] = useState<number>(0)
+
+  // State variables for token prices
+  const [sendPrice, setSendPrice] = useState<number | null>(null)
+  const [solPrice, setSolPrice] = useState<number | null>(null)
 
   useEffect(() => {
     // Fetch Mint Action Data
@@ -232,9 +236,22 @@ export const DashboardComponent: FC = () => {
       }
     }
 
+    // Fetch token prices from jup.ag Price API
+    const fetchPrices = async () => {
+      try {
+        const response = await fetch('https://api.jup.ag/price/v2?ids=SENDdRQtYMWaQrBroBrJ2Q53fgVuq95CV9UPGEvpCxa,So11111111111111111111111111111111111111112')
+        const data = await response.json()
+        setSendPrice(parseFloat(data.data.SENDdRQtYMWaQrBroBrJ2Q53fgVuq95CV9UPGEvpCxa.price))
+        setSolPrice(parseFloat(data.data.So11111111111111111111111111111111111111112.price))
+      } catch (error) {
+        console.error('Error fetching token prices:', error)
+      }
+    }
+
     fetchMintData()
     fetchBurnData()
     fetchStats()
+    fetchPrices()
   }, [])
 
   // Function to parse time left from description
@@ -265,6 +282,7 @@ export const DashboardComponent: FC = () => {
           // Include body or other necessary data for minting
         })
         const result = await response.json()
+        console.log(result, "result")
         alert('Mint successful!')
         // Handle post-mint actions here
       } catch (error) {
@@ -273,6 +291,10 @@ export const DashboardComponent: FC = () => {
       }
     }
   }
+
+  // Calculate Floor Price in USD
+  const buyNowPriceInSol = collectionStats ? collectionStats.statsV2.buyNowPrice / 1000000000 : 0
+  const floorPriceUSD = buyNowPriceInSol * (solPrice || 0)
 
   return (
     <div className="min-h-screen bg-[rgb(28,113,255)] text-white p-4 md:p-8">
@@ -308,7 +330,7 @@ export const DashboardComponent: FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard
           title="Winner Pool Prize"
-          value={mintData ? <AnimatedNumber value={parseFloat(mintData.title.match(/\$([\d,.]+)/)?.[1].replace(/,/g, '') || '0')} prefix="$" /> : null}
+          value={mintData ? <AnimatedNumber value={parseFloat(mintData.title.match(/\$([\d,.]+)/)?.[1].replace(/,/g, '') || '0') } prefix="$" /> : null}
           subtitle="in SEND tokens"
           icon={<TrendingUp className="w-5 h-5 text-green-400" />}
           trend="up"
@@ -323,19 +345,19 @@ export const DashboardComponent: FC = () => {
         />
         <StatCard
           title="Floor Price"
-          value={collectionStats ? <AnimatedNumber value={collectionStats.statsV2.buyNowPrice / 1000000000} prefix="$" /> : <AnimatedNumber value={2500} prefix="$" />}
+          value={collectionStats && solPrice ? <AnimatedNumber value={floorPriceUSD} prefix="$" /> : <AnimatedNumber value={2500} prefix="$" />}
           subtitle="on Tensor"
-          icon={<TrendingDown className="w-5 h-5 text-red-400" />}
-          trend="down"
-          loading={loading || !collectionStats}
+          icon={<TrendingUp className="w-5 h-5 text-green-400" />}
+          trend="up"
+          loading={loading || !collectionStats || !solPrice}
         />
         <StatCard
           title="SEND Token Price"
-          value={<AnimatedNumber value={0.15} prefix="$" />}
+          value={sendPrice ? <AnimatedNumber value={sendPrice} prefix="$" /> : <AnimatedNumber value={0.15} prefix="$" />}
           subtitle="current market"
           icon={<TrendingUp className="w-5 h-5 text-green-400" />}
           trend="up"
-          loading={loading}
+          loading={loading || sendPrice === null}
         />
       </div>
 
