@@ -71,7 +71,7 @@ interface CollectionStats {
   name: string;
 }
 
-const AnimatedNumber: FC<AnimatedNumberProps> = ({ value, prefix = '', suffix = '', decimalPlaces = 3 }) => {
+const AnimatedNumber: FC<AnimatedNumberProps> = ({ value, prefix = '', suffix = '', decimalPlaces = 2 }) => {
   const [displayValue, setDisplayValue] = useState<number>(0)
 
   useEffect(() => {
@@ -353,7 +353,7 @@ export const DashboardComponent: FC = () => {
         />
         <StatCard
           title="SEND Token Price"
-          value={sendPrice ? <AnimatedNumber value={sendPrice} prefix="$" /> : <AnimatedNumber value={0.15} prefix="$" />}
+          value={sendPrice ? <AnimatedNumber value={sendPrice} prefix="$" decimalPlaces={4} /> : <AnimatedNumber value={0.15} prefix="$" />}
           subtitle="current market"
           icon={<TrendingUp className="w-5 h-5 text-green-400" />}
           trend="up"
